@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ACO Optimization - TSP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <h1 class="text-center text-2xl font-bold mt-10 mb-10">
+      Ant Colony Optimization - TSP
+    </h1>
+    <table class="min-w-full">
+      <thead>
+        <tr>
+          <th class="border border-gray-300 p-2">Ant</th>
+          <th class="border border-gray-300 p-2">Position (Cities)</th>
+          <th class="border border-gray-300 p-2">Fitness (Distance)</th>
+        </tr>
+      </thead>
+      <tbody id="antTableBody"></tbody>
+    </table>
+    <div class="mt-5 text-center">
+      <p id="bestFitness" class="text-lg font-semibold">
+        Best Fitness (Distance) :
+      </p>
+      <p id="bestPosition" class="text-lg font-semibold">
+        Best Position (Cities) :
+      </p>
+    </div>
+
+    <div class="text-center mt-5">
+      <button
+        id="startButton"
+        class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2"
+      >
+        Start Optimization
+      </button>
+    </div>
+
+    <div class="mt-5">
+      <canvas id="fitnessChart"></canvas>
+    </div>
+
+    <div class="mt-5 flex justify-center">
+      <canvas
+        id="routeCanvas"
+        width="1000"
+        height="900"
+        class="border border-gray-300"
+      ></canvas>
+    </div>
+
+    <script type="module">
+      import { ACO } from "./aco.js";
+
+      const tableBody = document.getElementById("antTableBody");
+      const bestFitnessElement = document.getElementById("bestFitness");
+      const bestPositionElement = document.getElementById("bestPosition");
+      const startButton = document.getElementById("startButton");
+      const fitnessChartCtx = document
+        .getElementById("fitnessChart")
+        .getContext("2d");
+      const routeCanvas = document
+        .getElementById("routeCanvas")
+        .getContext("2d");
+
+      const distanceMatrix = [
+        [0, 20, 65, 35, 50, 95, 90, 80, 45, 120],
+        [20, 0, 50, 55, 60, 80, 70, 100, 75, 100],
+        [65, 50, 0, 90, 75, 70, 55, 125, 95, 80],
+        [35, 55, 90, 0, 55, 100, 95, 85, 40, 130],
+        [50, 60, 75, 55, 0, 60, 55, 25, 70, 95],
+        [95, 80, 70, 100, 60, 0, 25, 70, 120, 60],
+        [90, 70, 55, 95, 55, 25, 0, 75, 110, 50],
+        [80, 100, 125, 85, 25, 70, 75, 0, 95, 135],
+        [45, 75, 95, 40, 70, 120, 110, 95, 0, 140],
+        [120, 100, 80, 130, 95, 60, 50, 135, 140, 0],
+      ];
+
+      const cities = [
+        [-7.289166, 112.734398], // Surabaya
+        [-7.4530278, 112.7173389], // Sidoarjo
+        [-7.644872, 112.903297], // Pasuruan
+        [-7.15665, 112.6555], // Gresik
+        [-7.4722222, 112.4336111], // Mojokerto
+        [-7.8671, 112.5239], // Batu
+        [-7.981894, 112.626503], // Malang
+        [-7.5468395, 112.2264794], // Jombang
+        [-7.406153, 109.3946794], // Lamongan
+        [-7.756928, 113.211502], // Probolinggo
+      ];
+
+      const cityNames = [
+        "Surabaya",
+        "Sidoarjo",
+        "Pasuruan",
+        "Gresik",
+        "Mojokerto",
+        "Batu",
+        "Malang",
+        "Jombang",
+        "Lamongan",
+        "Probolinggo",
+      ];
+
+      const n_ant = 30;
+      const n_city = distanceMatrix.length;
+      const aco = new ACO(n_ant, n_city, distanceMatrix);
+
+      let iteration = 0;
+      let bestFitnessData = [];
+      let labels = [];
+
+      const fitnessChart = new Chart(fitnessChartCtx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Best Fitness",
+              data: bestFitnessData,
+              borderColor: "rgb(75, 192, 192)",
+              backgroundColor: "rgba(75, 192, 192, 0.2)",
+              fill: true,
+              tension: 0.1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: "Iteration",
+              },
+            },
+            y: {
+              title: {
+                display: true,
+                text: "Best Fitness (Distance)",
+              },
+            },
+          },
+        },
+      });
+
+      function updateTable() {
+        tableBody.innerHTML = "";
+        aco.ants.forEach((ant, index) => {
+          const routeNames = ant.position
+            .map((cityIndex) => cityNames[cityIndex])
+            .join(" -> ");
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td class="border border-gray-300 p-2">${index + 1}</td>
+                    <td class="border border-gray-300 p-2">${routeNames}</td>
+                    <td class="border border-gray-300 p-2">${ant.fitness.toFixed(
+                      2
+                    )} km</td>
+                `;
+          tableBody.appendChild(row);
+        });
+
+        const bestRouteNames = aco.bestSolution.position
+          .map((cityIndex) => cityNames[cityIndex])
+          .join(" -> ");
+        bestFitnessElement.textContent = `Best Fitness (Distance) : ${aco.bestSolution.fitness.toFixed(
+          2
+        )} km`;
+        bestPositionElement.textContent = `Best Position (Cities) : ${bestRouteNames}`;
+
+        drawRoute(aco.bestSolution.position); // Gambar rute terbaik
+      }
+
+      function latLonToCanvas(lat, lon) {
+        const canvasWidth = 800;
+        const canvasHeight = 800;
+
+        // Konversi latitude dan longitude menjadi x, y di dalam canvas
+        // Asumsikan kita menggunakan batas geografis untuk konversi
+        const minLat = -7.981894,
+          maxLat = -7.15665; // Rentang latitude
+        const minLon = 109.3946794,
+          maxLon = 113.211502; // Rentang longitude
+
+        // Normalisasi latitude dan longitude ke rentang 0-1
+        const normalizedLat = (lat - minLat) / (maxLat - minLat);
+        const normalizedLon = (lon - minLon) / (maxLon - minLon);
+
+        // Konversi ke koordinat canvas
+        const x = normalizedLon * canvasWidth;
+        const y = (1 - normalizedLat) * canvasHeight; // Invert y karena koordinat canvas dimulai dari atas
+
+        return [x, y];
+      }
+
+      function drawRoute(route) {
+        routeCanvas.clearRect(0, 0, 800, 800);
+
+        // Margin dan padding untuk titik kota
+        const margin = 10; // Margin untuk memberikan jarak dari tepi canvas
+        const dotSize = 8; // Ukuran titik kota
+
+        // Gambar kota dengan margin
+        cities.forEach((city, index) => {
+          const [x, y] = latLonToCanvas(city[0], city[1]);
+
+          // Geser titik kota agar tidak terlalu menempel dengan tepi canvas
+          const adjustedX = x + margin;
+          const adjustedY = y + margin;
+
+          // Gambar titik kota
+          routeCanvas.beginPath();
+          routeCanvas.arc(adjustedX, adjustedY, dotSize, 0, 2 * Math.PI);
+          routeCanvas.fillStyle = "blue"; // Warna titik kota
+          routeCanvas.fill();
+
+          routeCanvas.font = "12px Arial";
+          routeCanvas.fillStyle = "black";
+          routeCanvas.fillText(
+            cityNames[index],
+            adjustedX + dotSize + margin,
+            adjustedY + margin
+          );
+        });
+
+        // Gambar rute dengan warna merah untuk setiap garis antar kota
+        route.forEach((cityIndex, i) => {
+          const [x, y] = latLonToCanvas(
+            cities[cityIndex][0],
+            cities[cityIndex][1]
+          );
+
+          const adjustedX = x + margin;
+          const adjustedY = y + margin;
+
+          if (i === 0) {
+            routeCanvas.moveTo(adjustedX, adjustedY);
+          } else {
+            routeCanvas.lineTo(adjustedX, adjustedY);
+          }
+
+          // Tetapkan warna merah untuk setiap segmen
+          routeCanvas.strokeStyle = "red";
+          routeCanvas.lineWidth = 2;
+          routeCanvas.stroke(); // Menerapkan warna merah untuk setiap segmen antar kota
+        });
+
+        // Sambungkan kembali ke kota pertama dengan warna merah
+        const [startX, startY] = latLonToCanvas(
+          cities[route[0]][0],
+          cities[route[0]][1]
+        );
+        routeCanvas.lineTo(startX + margin, startY + margin);
+        routeCanvas.stroke();
+      }
+
+      function updateChart() {
+        labels.push(iteration);
+        bestFitnessData.push(aco.bestSolution.fitness);
+        fitnessChart.update();
+      }
+
+      function runACOIterations() {
+        const maxIterations = 50;
+        const interval = setInterval(() => {
+          aco.mainACO();
+          updateTable();
+          updateChart();
+          iteration++;
+
+          if (iteration >= maxIterations) {
+            clearInterval(interval);
+          }
+        }, 500);
+      }
+
+      startButton.addEventListener("click", () => {
+        runACOIterations();
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ACO Optimization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1 class="text-center text-2xl font-bold mt-10 mb-10">
+        Ant Colony Optimization - Maximization
+    </h1>
+    <table class="min-w-full">
+        <thead>
+            <tr>
+                <th class="border border-gray-300 p-2">Ant</th>
+                <th class="border border-gray-300 p-2">Position</th>
+                <th class="border border-gray-300 p-2">Fitness</th>
+                <th class="border border-gray-300 p-2">Path Pheromone</th>
+            </tr>
+        </thead>
+        <tbody id="antTableBody"></tbody>
+    </table>
+    <div class="mt-5 text-center">
+        <p id="bestFitness" class="text-lg font-semibold">Best Fitness :</p>
+        <p id="bestPosition" class="text-lg font-semibold">Best Position :</p>
+    </div>
+
+    <div class="text-center mt-5">
+        <button id="startButton" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2">Start Optimization</button>
+    </div>
+
+    <div class="mt-5">
+        <canvas id="fitnessChart"></canvas>
+    </div>
+
+    <script type="module">
+        import { maxProfit } from "./profit.js";
+        import { ACO } from "./aco.js";
+
+        const tableBody = document.getElementById("antTableBody");
+        const bestFitnessElement = document.getElementById("bestFitness");
+        const bestPositionElement = document.getElementById("bestPosition");
+        const startButton = document.getElementById("startButton");
+        const fitnessChartCtx = document.getElementById("fitnessChart").getContext("2d");
+        const n_ant = 10;
+        const aco = new ACO(n_ant, 3, maxProfit);
+
+        let iteration = 0;
+        let bestFitnessData = [];
+        let labels = [];
+
+        const fitnessChart = new Chart(fitnessChartCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Best Fitness',
+                    data: bestFitnessData,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {        
+                        title: {
+                            display: true,
+                            text: 'Iteration'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Best Fitness'
+                        },
+                    }
+                }
+            }
+        });
+
+        function updateTable() {
+    tableBody.innerHTML = "";
+    aco.ants.forEach((ant, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td class="border border-gray-300 p-2">${index + 1}</td>
+            <td class="border border-gray-300 p-2">${ant.position.map(p => p.toFixed(2)).join(",")}</td>
+            <td class="border border-gray-300 p-2">${ant.fitness.toFixed(2)}</td>
+            <td class="border border-gray-300 p-2">${aco.pheromone[index]?.map(p => p.toFixed(2)).join(", ") || "N/A"}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    bestFitnessElement.textContent = `Best Fitness : ${aco.bestSolution.fitness.toFixed(2)}`;
+    bestPositionElement.textContent = `Best Position : [${aco.bestSolution.position.map(gp => gp.toFixed(2)).join(", ")}]`;
+}
+
+
+
+        function updateChart() {
+            labels.push(iteration);
+            bestFitnessData.push(aco.bestSolution.fitness);
+            fitnessChart.update();
+        }
+
+        function runACOIterations() {
+            const maxIterations = 50;
+            const interval = setInterval(() => {
+                aco.mainACO();
+                updateTable();
+                updateChart();
+                iteration++;
+
+                if (iteration >= maxIterations) {
+                    clearInterval(interval);
+                }
+            }, 500);
+        }
+
+        startButton.addEventListener('click', () => {
+            runACOIterations();
+        });
+    </script>
+</body>
+</html>

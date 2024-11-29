@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PSO for TSP Optimization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <h1 class="text-center text-2xl font-bold mt-5">
+      PSO for TSP Optimization
+    </h1>
+    <table class="min-w-full border-collapse border border-blue-300 mt-5">
+      <thead>
+        <tr>
+          <th class="border border-gray-300 p-2">Partikel</th>
+          <th class="border border-gray-300 p-2">Urutan Kota</th>
+          <th class="border border-gray-300 p-2">Fitness (Jarak Total)</th>
+        </tr>
+      </thead>
+      <tbody id="particleTableBody"></tbody>
+    </table>
+
+    <div class="mt-5 text-center">
+      <p id="gbestFitness" class="text-lg font-semibold">Gbest Fitness:</p>
+      <p id="gbestPosition" class="text-lg font-semibold">Gbest Position:</p>
+    </div>
+
+    <div class="text-center mt-5">
+      <button id="startButton" class="bg-blue-500 text-white px-4 py-2 rounded">
+        Start Iteration
+      </button>
+    </div>
+
+    <div class="mt-5">
+      <canvas id="fitnessChart"></canvas>
+    </div>
+
+    <div class="mt-5 text-center">
+      <canvas id="routeCanvas" width="400" height="400" class="border"></canvas>
+    </div>
+
+    <script type="module">
+      import { PSO } from "./pso.js";
+
+      const cityNames = [
+        "Surabaya",
+        "Sidoarjo",
+        "Pasuruan",
+        "Gresik",
+        "Mojokerto",
+        "Batu",
+        "Malang",
+        "Jombang",
+        "Lamongan",
+        "Probolinggo",
+      ];
+
+      const cities = [
+        [50, 50],
+        [150, 50],
+        [250, 50],
+        [350, 50],
+        [50, 150],
+        [150, 150],
+        [250, 150],
+        [350, 150],
+        [50, 250],
+        [150, 250],
+      ];
+
+      const distanceMatrix = [
+        [0, 96, 129, 160, 197, 297, 32, 67, 21, 88.5],
+        [96, 0, 85, 80, 145, 284, 64, 96, 116, 48],
+        [129, 85, 0, 63, 180, 270, 110, 70, 130, 115],
+        [160, 80, 63, 0, 150, 260, 140, 95, 160, 125],
+        [197, 145, 180, 150, 0, 90, 220, 210, 230, 190],
+        [297, 284, 270, 260, 90, 0, 320, 290, 310, 270],
+        [32, 64, 110, 140, 220, 320, 0, 40, 30, 50],
+        [67, 96, 70, 95, 210, 290, 40, 0, 55, 70],
+        [21, 116, 130, 160, 230, 310, 30, 55, 0, 75],
+        [88.5, 48, 115, 125, 190, 270, 50, 70, 75, 0],
+      ];
+
+      const nParticles = 10;
+      const pso = new PSO(nParticles, 10, distanceMatrix);
+
+      const tableBody = document.getElementById("particleTableBody");
+      const gbestFitnessElement = document.getElementById("gbestFitness");
+      const gbestPositionElement = document.getElementById("gbestPosition");
+      const startButton = document.getElementById("startButton");
+      const fitnessChartCtx = document
+        .getElementById("fitnessChart")
+        .getContext("2d");
+      const routeCanvas = document.getElementById("routeCanvas").getContext("2d");
+
+      let iteration = 0;
+      let gbestFitnessData = [];
+      let labels = [];
+      let isRunning = false;
+
+      const fitnessChart = new Chart(fitnessChartCtx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Gbest Fitness",
+              data: gbestFitnessData,
+              borderColor: "rgba(75, 192, 192, 1)",
+              backgroundColor: "rgba(75, 192, 192, 0.2)",
+              fill: true,
+              tension: 0.1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: "Iteration" } },
+            y: { title: { display: true, text: "Jarak Total" } },
+          },
+        },
+      });
+
+      function mapCityNames(indices) {
+        return indices.map((index) => cityNames[index]).join(" -> ");
+      }
+
+      function updateTable() {
+        tableBody.innerHTML = "";
+        pso.particles.forEach((particle, index) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td class="border border-gray-300 p-2">${index + 1}</td>
+            <td class="border border-gray-300 p-2">${mapCityNames(
+              particle.position
+            )}</td>
+            <td class="border border-gray-300 p-2">${particle.fitness.toFixed(
+              2
+            )}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+
+        gbestFitnessElement.textContent = `Gbest Fitness: ${pso.gbestFitness.toFixed(
+          2
+        )}`;
+        gbestPositionElement.textContent = `Gbest Position: ${mapCityNames(
+          pso.gbestPosition
+        )}`;
+      }
+
+      function drawRoute(route) {
+        routeCanvas.clearRect(0, 0, 400, 400);
+
+        cities.forEach((city, index) => {
+          routeCanvas.beginPath();
+          routeCanvas.arc(city[0], city[1], 5, 0, 2 * Math.PI);
+          routeCanvas.fillStyle = "black";
+          routeCanvas.fill();
+          routeCanvas.fillText(cityNames[index], city[0] + 10, city[1] + 10);
+        });
+
+        routeCanvas.beginPath();
+        route.forEach((cityIndex, i) => {
+          const city = cities[cityIndex];
+          if (i === 0) routeCanvas.moveTo(city[0], city[1]);
+          else routeCanvas.lineTo(city[0], city[1]);
+        });
+        const firstCity = cities[route[0]];
+        routeCanvas.lineTo(firstCity[0], firstCity[1]);
+        routeCanvas.closePath();
+        routeCanvas.stroke();
+      }
+
+      function startIteration() {
+        isRunning = true;
+        iteration = 0;
+
+        const interval = setInterval(() => {
+          if (!isRunning) {
+            clearInterval(interval);
+            return;
+          }
+
+          pso.mainPSO();
+          gbestFitnessData.push(pso.gbestFitness);
+          labels.push(iteration);
+
+          fitnessChart.update();
+          updateTable();
+          drawRoute(pso.gbestPosition);
+
+          iteration++;
+        }, 500);
+      }
+
+      startButton.addEventListener("click", startIteration);
+    </script>
+  </body>
+</html>
